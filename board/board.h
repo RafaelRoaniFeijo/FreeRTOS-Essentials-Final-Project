@@ -55,6 +55,10 @@ void board_clrc663_select();
 
 void board_clrc663_txrx(uint8_t *tx, uint8_t *rx, uint32_t len);
 
+void board_eeprom_read(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, uint8_t *data, uint32_t len);
+
+void board_eeprom_write(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, uint8_t *data, uint32_t len);
+
 void board_led_set();
 
 void board_led_reset();

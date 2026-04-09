@@ -102,6 +102,16 @@ void board_clrc663_txrx(uint8_t *tx, uint8_t *rx, uint32_t len)
 	HAL_SPI_TransmitReceive(BOARD_SPI_CLRC663, tx, rx, len, 100);
 }
 
+void board_eeprom_read(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, uint8_t *data, uint32_t len)
+{
+	HAL_I2C_Mem_Read(BOARD_I2C_EEPROM, i2cAddress, memAddress, memAddrSize, data, len, 100);
+}
+
+void board_eeprom_write(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, uint8_t *data, uint32_t len)
+{
+	HAL_I2C_Mem_Write(BOARD_I2C_EEPROM, i2cAddress, memAddress, memAddrSize, data, len, 100);
+}
+
 void board_led_set()
 {
 	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
