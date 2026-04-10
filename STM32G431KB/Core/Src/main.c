@@ -21,6 +21,8 @@
 #include "i2c.h"
 #include "spi.h"
 #include "gpio.h"
+#include "storage.h"
+#include "board.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
