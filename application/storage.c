@@ -82,9 +82,60 @@ eeprom_e EE_Read(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, 
 
 void _task_storage(void *pvParams)
 {
+	storage_t *storage = (storage_t*)pvParams;
+	_storage_data_t StoData;
+	_storage_rsp_e StoRsp;
+	eeprom_t *Eeprom = &storage->EepromHandle;
+	eeprom_e eeRsp;
+
+	Eeprom->DelayMs = vTaskDelay;
+	Eeprom->EeReadFxn = EE_Read;
+	Eeprom->EeWriteFxn = EE_Write;
+	Eeprom->i2cAddress = EEPROM_ADDRESS;
+	Eeprom->memAddrSize = 1;
+	Eeprom->memSize = EEPROM_SIZE;
+	Eeprom->pageSize = PAGE_SIZE;
+	eeRsp = eeprom_init(Eeprom);
+	BoardAssert(eeRsp == EE_OK);
+
+	storage->xQueueToGatekeeper = xQueueCreate(5, sizeof(_storage_data_t));
 	loop
 	{
+		/*Aguardando o recebimento de comandos*/
+		xQueueReceive(storage->xQueueToGatekeeper, &StoData, portMAX_DELAY);
 
+		/*Iniciar a operação na eeprom*/
+		board_i2c_lock();
+
+		switch (StoData.eCmd) {
+			case _CMD_WRITE:
+				eeRsp = eeprom_write(Eeprom,
+						StoData.u32Address,
+						StoData.pu8Buffer,
+						StoData.u32Len);
+				if(eeRsp != NULL)
+				{
+					if (eeRsp == EE_OK)
+					{
+						StoRsp = _RSP_OK;
+					}
+					else
+					{
+						StoRsp = _RSP_FAILED;
+					}
+					xQueueSend(StoData.xRsp, &StoRsp, 0);
+				}
+				break;
+
+			case _CMD_READ:
+
+				break;
+
+			default:
+				break;
+		}
+
+		board_i2c_unlock();
 	}
 }
 
