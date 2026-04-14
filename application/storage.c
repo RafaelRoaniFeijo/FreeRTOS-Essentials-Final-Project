@@ -5,10 +5,6 @@
  *      Author: rafael.feijo
  */
 
-/**
- * Publics
- */
-
 /*
  * Includes
  */
@@ -47,6 +43,41 @@ typedef struct{
 #define PAGE_SIZE		16
 #define EEPROM_ADDRESS	0xA0
 
+/*
+ * Auxiliary
+ */
+
+//Aguardar resposta do gatekeeper
+storage_err_e _send_cmd_to_gatekeeper(storage_t *storage, _storage_data_t *StoCmd)
+{
+	_storage_rsp_e StoRsp;
+	QueueHandle_t xWaitQueue;
+
+	while(storage->xQueueToGatekeeper == NULL)
+	{
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
+
+	xWaitQueue = xQueueCreate(1, sizeof(_storage_rsp_e));
+
+	StoCmd->xRsp = xWaitQueue;
+	xQueueSend(storage->xQueueToGatekeeper, StoCmd, pdMS_TO_TICKS(200));
+	xQueueReceive(xWaitQueue, &StoRsp, portMAX_DELAY);
+
+	vQueueDelete(xWaitQueue);
+
+	if(StoRsp == _RSP_FAILED)
+	{
+		return STORAGE_FAILED;
+	}
+
+	return STORAGE_OK;
+}
+
+/**
+ * Publics
+ */
+
 /* Functions */
 /** EEPROM Functions for Library **/
 eeprom_e EE_Write(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, uint8_t *data, uint32_t len)
@@ -56,7 +87,7 @@ eeprom_e EE_Write(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize,
 		i2cAddress |= 0x2;
 		memAddress -= 256;
 	}
-	board_i2c_lock();
+	board_i2c_lock(); 				//lock e unlock somente quando for realmente usar, por conta de delays que tem internamente no driver
 	board_eeprom_write(i2cAddress, memAddress, memAddrSize, data, len);
 	board_i2c_unlock();
 
@@ -71,7 +102,7 @@ eeprom_e EE_Read(uint32_t i2cAddress, uint32_t memAddress, uint8_t memAddrSize, 
 		memAddress -= 256;
 	}
 
-	board_i2c_lock();
+	board_i2c_lock(); 				//lock e unlock somente quando for realmente usar, por conta de delays que tem internamente no driver
 	board_eeprom_read( i2cAddress, memAddress, memAddrSize, data, len);
 	board_i2c_unlock();
 
@@ -105,15 +136,15 @@ void _task_storage(void *pvParams)
 		xQueueReceive(storage->xQueueToGatekeeper, &StoData, portMAX_DELAY);
 
 		/*Iniciar a operação na eeprom*/
-		board_i2c_lock();
 
-		switch (StoData.eCmd) {
+		switch (StoData.eCmd)
+		{
 			case _CMD_WRITE:
 				eeRsp = eeprom_write(Eeprom,
 						StoData.u32Address,
 						StoData.pu8Buffer,
 						StoData.u32Len);
-				if(eeRsp != NULL)
+				if(StoData.xRsp != NULL)
 				{
 					if (eeRsp == EE_OK)
 					{
@@ -128,14 +159,25 @@ void _task_storage(void *pvParams)
 				break;
 
 			case _CMD_READ:
+				eeRsp = eeprom_read(Eeprom,
+						StoData.u32Address,
+						StoData.pu8Buffer,
+						StoData.u32Len);
+				if(StoData.xRsp != NULL)
+				{
+					if (eeRsp == EE_OK)
+					{
+						StoRsp = _RSP_OK;
+					}
+					else
+					{
+						StoRsp = _RSP_FAILED;
+					}
+					xQueueSend(StoData.xRsp, &StoRsp, 0);
+				}
 
-				break;
-
-			default:
 				break;
 		}
-
-		board_i2c_unlock();
 	}
 }
 
@@ -155,6 +197,35 @@ void storage_start(storage_t *storage)
 
 }
 
-storage_err_e storage_write(storage_t *storage, uint32_t Addr, uint8_t *DatToWrite, uint32_t Len);
+storage_err_e storage_write(storage_t *storage, uint32_t Addr, uint8_t *DatToWrite, uint32_t Len)
+{
+	_storage_data_t StoData;
 
-storage_err_e storage_read(storage_t *storage, uint32_t Addr, uint8_t *DatToRead, uint32_t Len);
+	BoardAssert(storage != NULL);
+	BoardAssert(DatToWrite != NULL);
+	BoardAssert(Len <= EEPROM_SIZE);
+
+	StoData.eCmd = _CMD_WRITE; //tbm da para colocar dentro do send to gatekeeper, defario
+	StoData.pu8Buffer = DatToWrite;
+	StoData.u32Len = Len;
+	StoData.u32Address = Addr;
+	//TODO
+	return _send_cmd_to_gatekeeper(storage, &StoData);
+
+}
+
+storage_err_e storage_read(storage_t *storage, uint32_t Addr, uint8_t *DatToRead, uint32_t Len)
+{
+	_storage_data_t StoData;
+
+	BoardAssert(storage != NULL);
+	BoardAssert(DatToWrite != NULL);
+	BoardAssert(Len <= EEPROM_SIZE);
+
+	StoData.eCmd = _CMD_READ;
+	StoData.pu8Buffer = DatToRead;
+	StoData.u32Len = Len;
+	StoData.u32Address = Addr;
+	//TODO
+	return _send_cmd_to_gatekeeper(storage, &StoData);
+}
