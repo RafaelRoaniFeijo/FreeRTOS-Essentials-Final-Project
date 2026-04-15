@@ -25,6 +25,8 @@
 
 #define BoardAssert(x)				assert(x)
 
+#define BOARD_MAXIMUM_CARDS			10
+
 #define	BOARD_TASK_PRIO_LOWEST		(1)
 #define	BOARD_TASK_PRIO_LOW			(2)
 #define	BOARD_TASK_PRIO_MID			(3)
