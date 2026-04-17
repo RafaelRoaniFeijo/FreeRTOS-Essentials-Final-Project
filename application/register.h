@@ -76,7 +76,7 @@ typedef struct
 
 register_err_e register_start(register_t *Register);
 
-uint32_t register_free_space(register_t *Register);
+uint32_t register_cards_registered(register_t *Register);
 
 register_err_e register_check_card(register_t *Register, uint64_t CardID, uint32_t *IDX);
 
