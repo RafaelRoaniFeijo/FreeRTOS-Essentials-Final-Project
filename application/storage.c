@@ -183,7 +183,7 @@ void _task_storage(void *pvParams)
 
 void storage_start(storage_t *storage)
 {
-	BaseType_t Err;
+	BaseType_t xErr;
 
 	BoardAssert(storage != NULL); 		//SE VIER null trava o programa aqui
 
@@ -219,7 +219,7 @@ storage_err_e storage_read(storage_t *storage, uint32_t Addr, uint8_t *DatToRead
 	_storage_data_t StoData;
 
 	BoardAssert(storage != NULL);
-	BoardAssert(DatToWrite != NULL);
+	BoardAssert(DatToRead != NULL);
 	BoardAssert(Len <= EEPROM_SIZE);
 
 	StoData.eCmd = _CMD_READ;

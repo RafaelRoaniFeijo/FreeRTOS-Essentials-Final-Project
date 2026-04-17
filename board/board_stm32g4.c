@@ -12,6 +12,7 @@
 #include <stm32g4xx.h>
 #include "i2c.h"
 #include "gpio.h"
+#include "spi.h"
 
 /*
  * Privates
@@ -41,7 +42,7 @@ static _board_t _Board;
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	board_gpio_callback(GPIO_Pin);
+//	board_gpio_callback(GPIO_Pin);
 }
 
 
