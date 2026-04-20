@@ -86,7 +86,7 @@ register_err_e register_add_card(register_t *Register, uint64_t CardID)
 
 	BoardAssert(Register);
 
-	if (Register->u32FreeSpace == 0)			/*Se não tiver espaço livre*/
+	if (Register->u32FreeSpace == 0)														/*Se não tiver espaço livre*/
 	{
 		return REGISTER_NO_FREE_SPACES;
 	}
@@ -110,6 +110,7 @@ register_err_e register_add_card(register_t *Register, uint64_t CardID)
 		}
 		address += REGISTER_EE_CARDS_STEP;
 	}
+
 	RegCard->u8UsedMask = REGISTER_USED_MASK;
 	RegCard->u64CardID = CardID;
 	address = REGISTER_EE_CARDS_START + (freeIDX * REGISTER_EE_CARDS_STEP);					/*Calculo de qual endereço ira salvar*/
@@ -121,10 +122,73 @@ register_err_e register_add_card(register_t *Register, uint64_t CardID)
 	return REGISTER_OK;
 }
 
-uint32_t register_list_cards(register_t *Register, uint64_t *OutArray);
+uint32_t register_list_cards(register_t *Register, uint64_t *OutArray)
+{
+	uint32_t i, It, address;
+	storage_t *Storage = &Register->Storage;
+	reg_card_t *RegCard = &Register->RegCard;
 
-register_err_e register_del_card_by_ID(register_t *Register, uint64_t CardID);
+	BoardAssert(Register);
+	BoardAssert(OutArray);
 
-register_err_e register_del_card_by_IDX(register_t *Register, uint32_t IDX);
+	address = REGISTER_EE_CARDS_START;
+	It = 0;
+	for (i = 0; i < REGISTER_MAXIMUM_CARDS; ++i)
+	{
+		storage_read(Storage, address, (uint8_t*)RegCard, sizeof(reg_card_t));
+		if (RegCard->u8UsedMask == REGISTER_USED_MASK)
+		{
+			OutArray[It] = RegCard->u64CardID; 						/*Colocando dentro do array os cartões que for encontrando se estiverem em used mask*/
+			It++;
+		}
+		address += REGISTER_EE_CARDS_STEP;
+	}
+	return It;														/*Retorna quantos foram encontrados*/
+}
+
+register_err_e register_del_card_by_ID(register_t *Register, uint64_t CardID)
+{
+	uint32_t i, It, address;
+	storage_t *Storage = &Register->Storage;
+	reg_card_t *RegCard = &Register->RegCard;
+
+	BoardAssert(Register);
+
+	if (Register->u32CardsRegistered == 0)
+	{
+		return REGISTER_OK;																		/*Retorna ok mesmo se n exista*/
+	}
+
+	address = REGISTER_EE_CARDS_START;
+	for (i = 0; i < REGISTER_MAXIMUM_CARDS; ++i)
+	{
+		storage_read(Storage, address, (uint8_t*)RegCard, sizeof(reg_card_t));
+		if (RegCard->u8UsedMask == REGISTER_USED_MASK && RegCard->u64CardID == CardID) 			/*Buscando se aquele cartão existe*/
+		{
+			RegCard->u64CardID = 0x0;															/*Aí zera o cartao*/
+			RegCard->u8UsedMask = REGISTER_UNUSED_MASK;
+			storage_write(Storage, address, (uint8_t*)RegCard, sizeof(reg_card_t));
+			Register->u32CardsRegistered--;
+			Register->u32FreeSpace++;
+			break;
+		}
+		address += REGISTER_EE_CARDS_STEP;
+	}
+	return REGISTER_OK;
+}
+
+register_err_e register_del_card_by_IDX(register_t *Register, uint32_t IDX)
+{
+	uint32_t address;
+	storage_t *Storage = &Register->Storage;
+	reg_card_t *RegCard = &Register->RegCard;
+
+	BoardAssert(Register);
+
+	if (Register->u32CardsRegistered == 0)
+	{
+		return REGISTER_OK;																		/*Retorna ok mesmo se n exista*/
+	}
+}
 
 register_err_e register_del_all_cards(register_t *Register);
