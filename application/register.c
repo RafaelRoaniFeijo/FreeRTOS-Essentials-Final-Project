@@ -148,7 +148,7 @@ uint32_t register_list_cards(register_t *Register, uint64_t *OutArray)
 
 register_err_e register_del_card_by_ID(register_t *Register, uint64_t CardID)
 {
-	uint32_t i, It, address;
+	uint32_t i, address;
 	storage_t *Storage = &Register->Storage;
 	reg_card_t *RegCard = &Register->RegCard;
 
@@ -184,11 +184,50 @@ register_err_e register_del_card_by_IDX(register_t *Register, uint32_t IDX)
 	reg_card_t *RegCard = &Register->RegCard;
 
 	BoardAssert(Register);
+	BoardAssert(IDX < REGISTER_MAXIMUM_CARDS);
 
 	if (Register->u32CardsRegistered == 0)
 	{
 		return REGISTER_OK;																		/*Retorna ok mesmo se n exista*/
 	}
+	address = REGISTER_EE_CARDS_START + (REGISTER_EE_CARDS_STEP + IDX);							/*Calcula o endereco baseado no index*/
+	storage_read(Storage, address, (uint8_t*)RegCard, sizeof(reg_card_t));						/*Leitura para garantir a sincronizacao*/
+	if (RegCard->u8UsedMask == REGISTER_USED_MASK) 												/*Se o local está sendo utilizado, vai diminuir e aumentar o espaço livre*/
+	{
+		Register->u32CardsRegistered--;
+		Register->u32FreeSpace++;
+		RegCard->u64CardID = 0x0;
+		RegCard->u8UsedMask = REGISTER_UNUSED_MASK;
+		storage_write(Storage, address, (uint8_t*)RegCard, sizeof(reg_card_t));						/*Deleta a posicao*/
+	}
+
+	return REGISTER_OK;
 }
 
-register_err_e register_del_all_cards(register_t *Register);
+register_err_e register_del_all_cards(register_t *Register)
+{
+	uint32_t address, i;
+	storage_t *Storage = &Register->Storage;
+	reg_card_t *RegCard = &Register->RegCard;
+
+	BoardAssert(Register);
+
+	if (Register->u32CardsRegistered == 0)
+	{
+		return REGISTER_OK;																		/*Retorna ok mesmo se n exista*/
+	}
+	RegCard->u64CardID = 0x0;
+	RegCard->u8UsedMask = REGISTER_UNUSED_MASK;
+	address = REGISTER_EE_CARDS_START;
+
+	for (i = 0; i < REGISTER_MAXIMUM_CARDS; i++)
+	{
+		storage_write(Storage, address, (uint8_t*)RegCard, sizeof(reg_card_t));
+		address += REGISTER_EE_CARDS_STEP;
+	}
+
+	Register->u32CardsRegistered = 0;
+	Register->u32FreeSpace = Register->u32TotalSpace;
+
+	return REGISTER_OK;
+}
