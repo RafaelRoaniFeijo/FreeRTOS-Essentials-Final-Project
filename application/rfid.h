@@ -50,7 +50,7 @@ typedef struct{
 
 void rfid_start(rfid_t *Rfid);
 
-uins64_t rfid_read(rfid_t *Rfid);
+uint64_t rfid_read(rfid_t *Rfid);
 
 /* Callback */
 

@@ -66,7 +66,7 @@ _rfid_card_det_e _rfid_pool_detect(rfid_t *Rfid)
 	ret = mfrc630_iso14443a_REQA();
 	if(ret != 0) 		//Se diferente de 0, significa que tem uma tag prox
 	{
-		uid_len = mfrc630_iso14443a_select((uint8_t *)uid, &sak); 	//entao faz a leitura da uid
+		uid_len = mfrc630_iso14443a_select((uint8_t *)&uid, &sak); 	//entao faz a leitura da uid
 		Rfid->u8TagUidLen = uid_len;
 		if (uid_len > 0)			// se maior que 0, conseguiu ler a tag
 		{
@@ -79,9 +79,38 @@ _rfid_card_det_e _rfid_pool_detect(rfid_t *Rfid)
 			return _RFID_CARD_NOT_PRESENT;
 		}
 	}
+	else
+	{
+		return _RFID_CARD_NOT_PRESENT;
+	}
 }
 
 /* Tasks */
+
+void _task_Rfid (void *pvParams)
+{
+	/* (rfid_t*) avisa ao compilador que aquele endereço de memória segue o desenho da sua
+	 * struct rfid_t. Você cria um ponteiro local (Rfid) que agora consegue ler e escrever
+	 * em u64TagUID, u8TagUidLen, etc.*/
+	rfid_t *Rfid = (rfid_t*)pvParams; // transforma um ponteiro genérico em um ponteiro utilizável do tipo RFID.
+
+	TickType_t xDelay = _DELAY_WHEN_NOT_DETECT;
+
+	_rfid_init(Rfid);
+	loop
+	{
+		if (_rfid_pool_detect(Rfid) == _RFID_CARD_DETECTED)
+		{
+			rfid_card_detected(Rfid);
+			xDelay = _DELAY_WHEN_DETECT;
+		}
+		else
+		{
+			xDelay = _DELAY_WHEN_NOT_DETECT;
+		}
+		vTaskDelay(pdMS_TO_TICKS(xDelay));
+	}
+}
 
 /**
  * Publics
@@ -89,10 +118,20 @@ _rfid_card_det_e _rfid_pool_detect(rfid_t *Rfid)
 
 void rfid_start(rfid_t *Rfid)
 {
+	BaseType_t xErr;
 
+	BoardAssert(Rfid != NULL);
+
+	xErr = xTaskCreate(_task_Rfid,
+			"Task Rfid",
+			256,
+			(void*)(Rfid),			//Ponteiro generico, que nao tem formato. N acessa a struct diretamente. Explicacao na task!
+			BOARD_TASK_PRIO_HIGH,
+			&Rfid->xTask);
+	BoardAssert(xErr == pdPASS);
 }
 
-uins64_t rfid_read(rfid_t *Rfid)
+uint64_t rfid_read(rfid_t *Rfid)
 {
 	uint64_t u64TagId;
 
