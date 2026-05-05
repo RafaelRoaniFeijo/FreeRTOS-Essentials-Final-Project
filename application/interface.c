@@ -329,7 +329,7 @@ void _process_button(interface_t *interface, interface_button_e e){
 }
 
 void _process_message_box(interface_t *interface, char *Text, uint32_t Timeout){
-	interface->bIgnoreButtons = true; //ignorar botões durante amostragem de mensagens
+	interface->bIgnoreButtons = true; //ignorar entrada botões durante amostragem de mensagens
 	char partText[32];
 	uint8_t i, Lines;
 	int32_t StartX, StartY;
@@ -366,3 +366,119 @@ void _process_message_box(interface_t *interface, char *Text, uint32_t Timeout){
 
 	interface->bIgnoreButtons = false;
 }
+
+/**
+ * Tasks
+ */
+
+void _task_init(interface_t *interface)
+{
+	 _wrap_ssd1306_init();
+	 _welcome_screen();
+
+	 vTaskDelay(pdMS_TO_TICKS(1000));
+	 interface->eSelOption = INTERFACE_SCR_MAIN;
+	 interface->u32CursorIndex = 0;
+	 interface->bIgnoreButtons = false;
+	 _build_screen(interface);
+}
+
+void _task_interface(void *pvParams)
+{
+	_queue_evts_t EvtMessage;
+	interface_t *interface = (interface_t*)pvParams;
+
+	_task_init(interface);
+	loop{
+		xQueueReceive(interface->xQueue, &EvtMessage, portMAX_DELAY);
+
+
+	}
+}
+
+/**
+ * Publics
+ */
+
+void interface_start(interface_t *interface)
+{
+	BaseType_t xErr;
+	BoardAssert(interface != NULL);
+
+	interface->xQueue = xQueueCreate(5, sizeof(_queue_evts_t));
+	BoardAssert(interface->xQueue != NULL);
+	xErr = xTaskCreate(_task_interface,
+			"Task Interface",
+			256,
+			(void*) (interface),
+			BOARD_TASK_PRIO_LOWEST,
+			&interface->xTask);
+	BoardAssert(xErr == pdPASS);
+}
+
+void interface_button_pressed(interface_t *interface, interface_button_e eBtn)
+{
+	 _queue_evts_t Evt;
+
+	 BoardAssert(interface != NULL);
+	 BoardAssert(interface->xQueue != NULL);
+
+	 if (interface->bIgnoreButtons == true)
+	 {
+		 return;
+	 }
+	 Evt.e = _EVT_BUTTON;
+	 Evt.btn.Pressed = eBtn;
+
+	 xQueueSendFromISR(interface->xQueue, &Evt, NULL);
+}
+
+void interface_show_message(interface_t *interface, char* Message, uint32_t TimeMs)
+{
+	 _queue_evts_t Evt;
+
+	 BoardAssert(interface != NULL);
+	 BoardAssert(Message != NULL);
+	 BoardAssert(interface->xQueue != NULL);
+
+	 Evt.e = _EVT_MESSAGE_BOX;
+	 strcpy(Evt.msg.Text, Message);
+	 Evt.msg.timeout = TimeMs;
+
+	 xQueueSendFromISR(interface->xQueue, &Evt, NULL);
+}
+
+void interface_send_card_list(interface_t *interface, uint64_t *CardList, uint32_t n)
+{
+	_queue_evts_t Evt;
+
+	BoardAssert(interface != NULL);
+	BoardAssert(CardList != NULL);
+
+	Evt.e = _EVT_UPDATE;
+	interface->pu64ListCards = CardList;
+	interface->u32ListCardsQtd = n;
+
+	xQueueSendFromISR(interface->xQueue, &Evt, NULL);
+}
+
+void interface_set_screen(interface_t* interface, interface_screen_e Scr)
+{
+	_queue_evts_t Evt;
+
+	BoardAssert(interface != NULL);
+
+	interface->eSelOption = Scr;
+	interface->u32CursorIndex = 0;
+	Evt.e = _EVT_UPDATE;
+
+	xQueueSendFromISR(interface->xQueue, &Evt, NULL);
+}
+
+interface_screen_e interface_get_screen(interface_t* interface)
+{
+	BoardAssert(interface != NULL);
+	return interface->eSelOption;
+}
+
+
