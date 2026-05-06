@@ -391,8 +391,20 @@ void _task_interface(void *pvParams)
 	_task_init(interface);
 	loop{
 		xQueueReceive(interface->xQueue, &EvtMessage, portMAX_DELAY);
-
-
+		switch (EvtMessage.e){
+		case _EVT_BUTTON:
+			_process_button(interface, EvtMessage.btn.Pressed);
+			break;
+		case _EVT_MESSAGE_BOX:
+			_process_message_box(interface,
+					EvtMessage.msg.Text,
+					EvtMessage.msg.timeout);
+			break;
+		case _EVT_UPDATE:
+			// do nothing
+			break;
+		}
+		_build_screen(interface);
 	}
 }
 
