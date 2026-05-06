@@ -14,6 +14,7 @@
 #include "gpio.h"
 #include "spi.h"
 
+
 /*
  * Privates
  */
@@ -46,7 +47,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	{
 		void board_btn_sel_callback();
 	}
-	else if (BUTTON_ENTER)
+	else if (BTN_ENTER_Pin)
 	{
 		void board_btn_enter_callback();
 	}
