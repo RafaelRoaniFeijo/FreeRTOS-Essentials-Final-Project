@@ -255,7 +255,7 @@ void _process_button(interface_t *interface, interface_button_e e){
 			switch (interface->u32CursorIndex){
 			case 0:
 				interface->eSelOption = INTERFACE_SCR_ADD_CARD;
-				interface_cb_event(interface, INTERFACE_EVT_ADD_CARD, NULL);
+				interface_cb_event(interface, INTERFACE_EVT_ADD_CARDS, NULL);
 				break;
 			case 1:
 				interface->eSelOption = INTERFACE_SCR_DEL_CARD;
@@ -300,7 +300,7 @@ void _process_button(interface_t *interface, interface_button_e e){
 				break;
 			default:
 				CardIndex = interface->u32CursorIndex - 1;
-				interface_cb_event(interface, INTERFACE_EVT_DEL_CARD, &CardIndex);
+				interface_cb_event(interface, INTERFACE_EVT_DEL_CARDS, &CardIndex);
 				break;
 			}
 			interface->u32CursorIndex = 0;

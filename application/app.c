@@ -20,7 +20,7 @@ void interface_cb_event(interface_t *interface, interface_events_cb_e e, uint32_
 	{
 		case INTERFACE_EVT_ADD_CARDS:
 			xEventGroupSetBits(Appl.xFlags, EVENT_ADD_CARD);
-			//TODO Initialize tim's up timer
+			xTimerStart(Appl.xTimTimesUp, 0);
 			break;
 
 		case INTERFACE_EVT_LIST_CARDS:
@@ -38,7 +38,7 @@ void interface_cb_event(interface_t *interface, interface_events_cb_e e, uint32_
 
 		case INTERFACE_EVT_CANCEL:
 			xEventGroupSetBits(Appl.xFlags, EVENT_INTERFACE_CANCEL);
-			//TODO Stop the time's up timer
+			xTimerStop(Appl.xTimTimesUp, 0);
 			break;
 
 		case INTERFACE_EVT_GET_CARDS:
@@ -62,17 +62,60 @@ void rfid_card_detected(rfid_t *Rfid)
 
 void _timer_cooldown_cb (TimerHandle_t xTimer)
 {
-
+	if(Appl.eCardMode == APP_CARD_MODE_COOLDOWN)
+	{
+		Appl.eCardMode = APP_CARD_MODE_READING;
+	}
 }
 
 void _timer_times_up(TimerHandle_t xTimer)
 {
-
+	if(interface_get_screen(&Appl.Interface) != INTERFACE_SCR_MAIN) 	//SE NÃO ESTIVER NA TELA MAIN
+	{
+		interface_set_screen(&Appl.Interface, INTERFACE_SCR_MAIN);		//vai voltar para a main
+		interface_show_message(&Appl.Interface, "Time's Up", 1500);		//mostra times por 1,5s
+		Appl.eCardMode = APP_CARD_MODE_READING;							//volta para o modo de leitura
+	}
 }
 
 void _timer_led(TimerHandle_t xTimer)
 {
+	switch (Appl.eCardMode)
+	{
+		case APP_CARD_MODE_COOLDOWN:
+			board_led_set();
+			break;
 
+		case APP_CARD_MODE_READING:
+			if (Appl.u32LedCnt < 3)
+			{
+				board_led_set();
+			}
+
+			else
+			{
+				board_led_reset();
+			}
+			break;
+
+		case APP_CARD_MODE_REGISTER:
+			if (Appl.u32LedCnt < 6)
+			{
+				board_led_set();
+			}
+
+			else
+			{
+				board_led_reset();
+			}
+			break;
+	}
+
+	Appl.u32LedCnt++;
+	if (Appl.u32LedCnt > 9)
+	{
+		Appl.u32LedCnt = 0;
+	}
 }
 
 /**
@@ -81,7 +124,7 @@ void _timer_led(TimerHandle_t xTimer)
 
 void _task_Application(void* pvParams)
 {
-	EventBits_t xFlagsBits;
+	EventBits_t xFlagBits;
 	interface_t *Interface = &Appl.Interface;		//facilitar a escrita
 	register_t *Register = &Appl.Register;
 	rfid_t *Rfid = &Appl.Rfid;
@@ -93,9 +136,50 @@ void _task_Application(void* pvParams)
 	rfid_start(Rfid);
 
 	Appl.eCardMode = APP_CARD_MODE_READING;
+	xTimerStart(Appl.xTimLed, 0);
 
 	loop{
+		xFlagBits = xEventGroupWaitBits(Appl.xFlags,
+				EVENT_ALL,
+				pdTRUE,
+				pdFALSE,
+				portMAX_DELAY);
 
+		if (xFlagBits & EVENT_ADD_CARD)
+		{
+			// enter on state that card will be added
+			_app_add_card();
+		}
+
+		if (xFlagBits & EVENT_LIST_CARDS)
+		{
+			// list cards and delivery to the interface
+			_app_list_cards();
+		}
+
+		if (xFlagBits & EVENT_DEL_CARD)
+		{
+			// delete a card based on the index
+			_app_del_card();
+		}
+
+		if (xFlagBits & EVENT_DEL_ALL_CARDS)
+		{
+			// delete all cards
+			_app_del_all_card();
+		}
+
+		if (xFlagBits & EVENT_INTERFACE_CANCEL)
+		{
+			// cancel a operation
+			_app_cancel();
+		}
+
+		if (xFlagBits & EVENT_CARD_DETECTEC)
+		{
+			// a card was detected on the front-end antenna
+			_app_detected_card();
+		}
 	}
 }
 
