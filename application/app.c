@@ -38,7 +38,6 @@ void interface_cb_event(interface_t *interface, interface_events_cb_e e, uint32_
 
 		case INTERFACE_EVT_CANCEL:
 			xEventGroupSetBits(Appl.xFlags, EVENT_INTERFACE_CANCEL);
-			xTimerStop(Appl.xTimTimesUp, 0);
 			break;
 
 		case INTERFACE_EVT_GET_CARDS:
@@ -56,6 +55,120 @@ void rfid_card_detected(rfid_t *Rfid)
  * Privates
  */
 
+void _app_cooldown()
+{
+	Appl.eCardMode = APP_CARD_MODE_COOLDOWN;
+	xTimerStart(Appl.xTimCooldown, portMAX_DELAY);
+}
+
+void _app_add_card()
+{
+	Appl.eCardMode = APP_CARD_MODE_REGISTER;
+	xTimerStart(Appl.xTimTimesUp, 0);
+}
+
+void _app_list_cards()
+{
+	uint32_t qtd;
+
+	qtd = register_list_cards(&Appl.Register, Appl.CardList);
+	interface_send_card_list(&Appl.Interface, Appl.CardList, qtd);
+}
+
+void _app_del_card()
+{
+	register_del_card_by_ID(&Appl.Register, Appl.CardList[Appl.u32DeleteCardIdx]);
+	interface_show_message(&Appl.Interface,
+			"Selected card\n"
+			"removed!",
+			1000);
+	interface_set_screen(&Appl.Interface, INTERFACE_SCR_MAIN);
+}
+
+void _app_del_all_card()
+{
+	register_del_all_cards(&Appl.Register);
+	interface_show_message(&Appl.Interface,
+			"All cards\n"
+			"deleted!",
+			1000);
+	interface_set_screen(&Appl.Interface, INTERFACE_SCR_MAIN);
+}
+
+void _app_cancel()
+{
+	Appl.eCardMode = APP_CARD_MODE_READING;		//Volta ao modo de leitura
+	xTimerStop(Appl.xTimTimesUp, 0);
+}
+
+void _app_detected_card()
+{
+	char Text [64];
+	register_err_e err;
+
+	Appl.u64ReadedCard = rfid_read(&Appl.Rfid);		//recebe o cartao lido
+
+	/*Saber o evento que meu programa esta*/
+	if (Appl.eCardMode == APP_CARD_MODE_REGISTER)
+	{
+		err = register_add_card(&Appl.Register, Appl.u64ReadedCard);
+
+		if (err == REGISTER_OK)
+		{
+			sprintf(Text,
+					"Card Saved!\n"
+					"Card Code:\n"
+					"%08x",
+					Appl.u64ReadedCard);
+			interface_show_message(&Appl.Interface, Text, 2000);
+		}
+
+		else if (err == REGISTER_NO_FREE_SPACES)
+		{
+			interface_show_message(&Appl.Interface,
+					"Memory is full!",
+					2000);
+		}
+
+		else if (err == REGISTER_CARD_ALREADY_EXISTS)
+		{
+			sprintf(Text,
+					"Card Already\n"
+					"registered!\n"
+					"Card Code:\n"
+					"%08x", Appl.u64ReadedCard);
+			interface_show_message(&Appl.Interface, Text, 2000);
+		}
+		_app_cooldown();
+		interface_set_screen(&Appl.Interface, INTERFACE_SCR_MAIN);
+	}
+
+	else if (Appl.eCardMode == APP_CARD_MODE_READING)
+	{
+		err = register_check_card(&Appl.Register, Appl.u64ReadedCard, NULL);
+		if (err == REGISTER_OK)
+		{
+			sprintf(Text,
+					"Access OK!\n"
+					"Card Code:\n"
+					"%08x",
+					Appl.u64ReadedCard);
+			interface_show_message(&Appl.Interface, Text, 2000);
+		}
+
+		else
+		{
+			sprintf(Text,
+					"Access DENINED!\n"
+					"Card Code:\n"
+					"%08x",
+					Appl.u64ReadedCard);
+			interface_show_message(&Appl.Interface, Text, 2000);
+		}
+
+		_app_cooldown();
+	}
+}
 /**
  * Timers
  */

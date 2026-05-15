@@ -21,6 +21,7 @@
 #include "i2c.h"
 #include "spi.h"
 #include "gpio.h"
+#include "app.h"
 
 
 /* Private includes ----------------------------------------------------------*/
@@ -92,11 +93,12 @@ int main(void)
   MX_I2C3_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-
+  app_start();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  vTaskStartScheduler();
   while (1)
   {
     /* USER CODE END WHILE */
