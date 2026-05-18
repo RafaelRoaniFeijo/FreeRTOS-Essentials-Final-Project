@@ -43,13 +43,13 @@ static _board_t _Board;
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if (BTN_SEL_Pin)
+	if (GPIO_Pin == BTN_SEL_Pin)
 	{
-		void board_btn_sel_callback();
+		 board_btn_sel_callback();
 	}
-	else if (BTN_ENTER_Pin)
+	else if (GPIO_Pin == BTN_ENTER_Pin)
 	{
-		void board_btn_enter_callback();
+		 board_btn_enter_callback();
 	}
 }
 
